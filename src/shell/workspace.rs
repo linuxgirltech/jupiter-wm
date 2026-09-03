@@ -1,5 +1,6 @@
 use crate::backend::render::wayland::SurfaceRenderElement;
 use crate::shell::focus::FocusTarget;
+use crate::shell::layout::scrolling::RestoreScrollState;
 use crate::shell::layout::tiling::RestoreTilingState;
 use crate::wayland::handlers::xdg_activation::ActivationContext;
 use crate::{
@@ -8,6 +9,7 @@ use crate::{
         ANIMATION_DURATION, OverviewMode, SeatMoveGrabState,
         layout::{
             floating::{FloatingLayout, TiledCorners},
+            scrolling::ScrollingLayout,
             tiling::TilingLayout,
         },
     },
@@ -69,7 +71,10 @@ use super::{
         target::{KeyboardFocusTarget, PointerFocusTarget, WindowGroup},
     },
     grabs::ResizeEdge,
-    layout::tiling::{Data, NodeDesc},
+    layout::{
+        scrolling::{Data as ScrollData, NodeDesc as ScrollNode},
+        tiling::{Data, NodeDesc},
+    },
 };
 
 const FULLSCREEN_ANIMATION_DURATION: Duration = Duration::from_millis(200);
@@ -104,9 +109,11 @@ fn output_matches(output_match: &OutputMatch, output: &Output, disambiguate: boo
 pub struct Workspace {
     pub output: Output,
     pub tiling_layer: TilingLayout,
+    pub scroll_layer: ScrollingLayout,
     pub floating_layer: FloatingLayout,
     pub minimized_windows: Vec<MinimizedWindow>,
     pub tiling_enabled: bool,
+    pub scroll_enabled: bool,
     pub fullscreen_surfaces: Vec<FullscreenSurface>,
     pub pinned: bool,
     pub id: Option<String>,
@@ -133,6 +140,10 @@ pub enum MinimizedWindow {
     Tiling {
         window: CosmicMapped,
         previous: TilingRestoreData,
+    },
+    Scroll {
+        window: CosmicMapped,
+        previous: ScrollRestoreData,
     },
 }
 
@@ -163,9 +174,9 @@ impl MinimizedWindow {
 
     pub fn active_window(&self) -> CosmicSurface {
         match self {
-            MinimizedWindow::Floating { window, .. } | MinimizedWindow::Tiling { window, .. } => {
-                window.active_window()
-            }
+            MinimizedWindow::Floating { window, .. }
+            | MinimizedWindow::Tiling { window, .. }
+            | MinimizedWindow::Scroll { window, .. } => window.active_window(),
             MinimizedWindow::Fullscreen { surface, .. } => surface.clone(),
         }
     }
@@ -325,6 +336,12 @@ impl FloatingRestoreData {
 #[derive(Debug, Clone)]
 pub struct TilingRestoreData {
     pub state: Option<RestoreTilingState>,
+    pub was_maximized: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ScrollRestoreData {
+    pub state: Option<RestoreScrollState>,
     pub was_maximized: bool,
 }
 

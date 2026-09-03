@@ -12,6 +12,7 @@ use tracing::warn;
 use super::CosmicSurface;
 
 pub mod floating;
+pub mod scrolling;
 pub mod tiling;
 
 pub fn is_dialog(window: &CosmicSurface) -> bool {
@@ -100,4 +101,52 @@ pub fn has_floating_exception(exceptions: &TilingExceptions, window: &CosmicSurf
     }
 
     false
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ScrollExceptions {
+    app_ids: RegexSet,
+    titles: RegexSet,
+}
+
+impl ScrollExceptions {
+    pub fn new<'a, I>(exceptions_config: I) -> Self
+    where
+        I: Iterator<Item = &'a ApplicationException>,
+    {
+        let mut app_ids = Vec::new();
+        let mut titles = Vec::new();
+
+        for exception in exceptions_config {
+            if let Err(e) = Regex::new(&exception.appid) {
+                warn!("Invalid regex for appid: {}, {}", exception.appid, e);
+                continue;
+            }
+            if let Err(e) = Regex::new(&exception.title) {
+                warn!("Invalid regex for title: {}, {}", exception.appid, e);
+                continue;
+            }
+
+            app_ids.push(exception.appid.clone());
+            titles.push(exception.title.clone());
+        }
+
+        Self {
+            app_ids: RegexSet::new(app_ids).unwrap(),
+            titles: RegexSet::new(titles).unwrap(),
+        }
+    }
+
+    pub fn has_floating_exception(exceptions: &ScrollExceptions, window: &CosmicSurface) -> bool {
+        // else take a look at our exceptions
+        let appid_matches = exceptions.app_ids.matches(&window.app_id());
+        let title_matches = exceptions.titles.matches(&window.title());
+        for idx in appid_matches.into_iter() {
+            if title_matches.matched(idx) {
+                return true;
+            }
+        }
+
+        false
+    }
 }
