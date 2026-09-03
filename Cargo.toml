@@ -1,9 +1,9 @@
 [package]
-authors = ["Victoria Brekenfeld"]
+authors = ["Fae Hamilton-Raine"]
 edition = "2024"
 license = "GPL-3.0-only"
-name = "cosmic-comp"
-version = "1.0.0"
+name = "jupiter-wm"
+version = "0.1.0"
 rust-version = "1.93"
 
 [workspace]
